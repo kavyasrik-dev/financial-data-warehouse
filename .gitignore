@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Environment
+.env
+*.env
+!.env.example
+
+# Airflow
+airflow/logs/
+airflow/plugins/
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# Great Expectations
+great_expectations/uncommitted/
+
+# Docker / local data
+*.log
+tmp/
+data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Project documents
+day-wise.md
+prd.md
