@@ -1,1 +1,7 @@
-
+apache-airflow-providers-postgres==5.13.1
+dbt-core==1.8.8
+dbt-postgres==1.8.2
+faker==30.8.2
+great-expectations==0.18.22
+pandas==2.2.3
+psycopg2-binary==2.9.10
