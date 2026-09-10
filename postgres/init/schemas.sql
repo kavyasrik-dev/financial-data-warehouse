@@ -149,14 +149,17 @@ CREATE TABLE IF NOT EXISTS warehouse.fact_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_raw_customers_customer_id ON raw.customers (customer_id);
 CREATE INDEX IF NOT EXISTS idx_raw_customers_batch_id ON raw.customers (load_batch_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_customers_source_record_hash ON raw.customers (source_record_hash);
 CREATE INDEX IF NOT EXISTS idx_raw_cards_customer_id ON raw.cards (customer_id);
 CREATE INDEX IF NOT EXISTS idx_raw_cards_card_id ON raw.cards (card_id);
 CREATE INDEX IF NOT EXISTS idx_raw_cards_batch_id ON raw.cards (load_batch_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_cards_source_record_hash ON raw.cards (source_record_hash);
 CREATE INDEX IF NOT EXISTS idx_raw_transactions_transaction_id ON raw.transactions (transaction_id);
 CREATE INDEX IF NOT EXISTS idx_raw_transactions_customer_id ON raw.transactions (customer_id);
 CREATE INDEX IF NOT EXISTS idx_raw_transactions_card_id ON raw.transactions (card_id);
 CREATE INDEX IF NOT EXISTS idx_raw_transactions_timestamp ON raw.transactions (transaction_timestamp);
 CREATE INDEX IF NOT EXISTS idx_raw_transactions_batch_id ON raw.transactions (load_batch_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_raw_transactions_source_record_hash ON raw.transactions (source_record_hash);
 CREATE INDEX IF NOT EXISTS idx_dim_customer_business_current ON warehouse.dim_customer (customer_id, is_current);
 CREATE INDEX IF NOT EXISTS idx_fact_transactions_date_key ON warehouse.fact_transactions (date_key);
 CREATE INDEX IF NOT EXISTS idx_fact_transactions_customer_sk ON warehouse.fact_transactions (customer_sk);
