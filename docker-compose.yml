@@ -18,8 +18,10 @@ x-airflow-common: &airflow-common
     WAREHOUSE_DB_HOST: ${WAREHOUSE_DB_HOST:-postgres}
     WAREHOUSE_DB_PORT: ${WAREHOUSE_DB_PORT:-5432}
     WAREHOUSE_DB_NAME: ${WAREHOUSE_DB_NAME:-financial_warehouse}
-    WAREHOUSE_DB_USER: ${WAREHOUSE_DB_USER:-postgres}
-    WAREHOUSE_DB_PASSWORD: ${WAREHOUSE_DB_PASSWORD:-postgres}
+    WAREHOUSE_DB_USER: ${WAREHOUSE_DB_USER:-warehouse_app}
+    WAREHOUSE_DB_PASSWORD: ${WAREHOUSE_DB_PASSWORD:-warehouse_app}
+    DBT_TARGET: ${DBT_TARGET:-dev}
+    DBT_THREADS: ${DBT_THREADS:-4}
   user: "${AIRFLOW_UID:-50000}:0"
   volumes:
     - ./airflow/dags:/opt/airflow/dags

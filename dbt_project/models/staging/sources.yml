@@ -1,0 +1,111 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('WAREHOUSE_DB_NAME', 'financial_warehouse') }}"
+    schema: raw
+    loader: python_csv_ingestion
+    loaded_at_field: ingested_at
+    freshness:
+      warn_after:
+        count: 24
+        period: hour
+      error_after:
+        count: 72
+        period: hour
+    tables:
+      - name: customers
+        identifier: customers
+        columns:
+          - name: source_record_id
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            tests:
+              - not_null
+          - name: customer_name
+            tests:
+              - not_null
+          - name: email
+            tests:
+              - not_null
+          - name: phone
+            tests:
+              - not_null
+          - name: customer_status
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ["Active", "Inactive"]
+          - name: load_batch_id
+            tests:
+              - not_null
+          - name: source_record_hash
+            tests:
+              - not_null
+              - unique
+
+      - name: cards
+        identifier: cards
+        columns:
+          - name: source_record_id
+            tests:
+              - not_null
+              - unique
+          - name: card_id
+            tests:
+              - not_null
+          - name: customer_id
+            tests:
+              - not_null
+          - name: card_number
+            tests:
+              - not_null
+          - name: card_status
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ["active", "blocked", "expired"]
+          - name: load_batch_id
+            tests:
+              - not_null
+          - name: source_record_hash
+            tests:
+              - not_null
+              - unique
+
+      - name: transactions
+        identifier: transactions
+        columns:
+          - name: source_record_id
+            tests:
+              - not_null
+              - unique
+          - name: transaction_id
+            tests:
+              - not_null
+          - name: customer_id
+            tests:
+              - not_null
+          - name: card_id
+            tests:
+              - not_null
+          - name: transaction_timestamp
+            tests:
+              - not_null
+          - name: amount
+            tests:
+              - not_null
+          - name: transaction_status
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ["success", "failed", "pending"]
+          - name: load_batch_id
+            tests:
+              - not_null
+          - name: source_record_hash
+            tests:
+              - not_null
+              - unique

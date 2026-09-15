@@ -1,0 +1,14 @@
+financial_data_warehouse:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('WAREHOUSE_DB_HOST', 'localhost') }}"
+      port: "{{ env_var('WAREHOUSE_DB_PORT', '5432') | int }}"
+      user: "{{ env_var('WAREHOUSE_DB_USER', 'warehouse_app') }}"
+      password: "{{ env_var('WAREHOUSE_DB_PASSWORD', 'warehouse_app') }}"
+      dbname: "{{ env_var('WAREHOUSE_DB_NAME', 'financial_warehouse') }}"
+      schema: analytics
+      threads: "{{ env_var('DBT_THREADS', '4') | int }}"
+      keepalives_idle: 0
+      connect_timeout: 10
