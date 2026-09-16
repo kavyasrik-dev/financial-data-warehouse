@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: stg_customers
+    columns:
+      - name: source_record_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests:
+          - not_null
+      - name: email
+        tests:
+          - not_null
+      - name: phone
+        tests:
+          - not_null
+      - name: customer_status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["active", "inactive"]
+      - name: source_record_hash
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_cards
+    columns:
+      - name: card_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests:
+          - not_null
+      - name: card_number
+        tests:
+          - not_null
+      - name: card_status
+        tests:
+          - accepted_values:
+              values: ["active", "blocked", "expired"]
+      - name: source_record_hash
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_transactions
+    columns:
+      - name: transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests:
+          - not_null
+      - name: card_id
+        tests:
+          - not_null
+      - name: amount
+        tests:
+          - not_null
+      - name: transaction_status
+        tests:
+          - accepted_values:
+              values: ["success", "failed", "pending"]
+      - name: source_record_hash
+        tests:
+          - not_null
+          - unique

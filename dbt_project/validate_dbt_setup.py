@@ -11,6 +11,10 @@ REQUIRED_FILES = [
     ROOT / "dbt_project.yml",
     ROOT / "profiles.yml",
     ROOT / "models" / "staging" / "sources.yml",
+    ROOT / "models" / "staging" / "schema.yml",
+    ROOT / "models" / "staging" / "stg_customers.sql",
+    ROOT / "models" / "staging" / "stg_cards.sql",
+    ROOT / "models" / "staging" / "stg_transactions.sql",
     ROOT / "macros" / "generate_schema_name.sql",
 ]
 
@@ -40,6 +44,16 @@ def validate_files() -> None:
     assert "schema: raw" in sources
     for source_name in ["customers", "cards", "transactions"]:
         assert f"name: {source_name}" in sources, f"sources.yml missing raw.{source_name}"
+
+    for model_name, source_name in [
+        ("stg_customers", "customers"),
+        ("stg_cards", "cards"),
+        ("stg_transactions", "transactions"),
+    ]:
+        model_sql = text(ROOT / "models" / "staging" / f"{model_name}.sql")
+        assert f"source('raw', '{source_name}')" in model_sql, f"{model_name}.sql missing raw source ref"
+        assert "row_number() over" in model_sql, f"{model_name}.sql missing duplicate handling"
+        assert "nullif(trim(" in model_sql, f"{model_name}.sql missing null/trim cleanup"
 
 
 def run_dbt_debug() -> None:
