@@ -16,6 +16,7 @@ REQUIRED_FILES = [
     ROOT / "models" / "staging" / "stg_cards.sql",
     ROOT / "models" / "staging" / "stg_transactions.sql",
     ROOT / "macros" / "generate_schema_name.sql",
+    ROOT / "macros" / "pii_masking.sql",
 ]
 
 
@@ -54,6 +55,16 @@ def validate_files() -> None:
         assert f"source('raw', '{source_name}')" in model_sql, f"{model_name}.sql missing raw source ref"
         assert "row_number() over" in model_sql, f"{model_name}.sql missing duplicate handling"
         assert "nullif(trim(" in model_sql, f"{model_name}.sql missing null/trim cleanup"
+
+    masking = text(ROOT / "macros" / "pii_masking.sql")
+    for macro_name in ["mask_email", "mask_phone", "mask_card", "mask_name"]:
+        assert f"macro {macro_name}" in masking, f"pii_masking.sql missing {macro_name}"
+
+    customers_sql = text(ROOT / "models" / "staging" / "stg_customers.sql")
+    cards_sql = text(ROOT / "models" / "staging" / "stg_cards.sql")
+    for expected in ["customer_name_masked", "email_masked", "phone_masked"]:
+        assert expected in customers_sql, f"stg_customers.sql missing {expected}"
+    assert "card_number_masked" in cards_sql, "stg_cards.sql missing card_number_masked"
 
 
 def run_dbt_debug() -> None:

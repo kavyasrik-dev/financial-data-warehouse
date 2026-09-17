@@ -19,6 +19,7 @@ cleaned as (
         nullif(trim(card_id), '') as card_id,
         nullif(trim(customer_id), '') as customer_id,
         regexp_replace(coalesce(card_number, ''), '[^0-9]', '', 'g') as card_number,
+        {{ mask_card("regexp_replace(coalesce(card_number, ''), '[^0-9]', '', 'g')") }} as card_number_masked,
         lower(nullif(trim(card_type), '')) as card_type,
         expiry_date::date as expiry_date,
         lower(nullif(trim(card_status), '')) as card_status,

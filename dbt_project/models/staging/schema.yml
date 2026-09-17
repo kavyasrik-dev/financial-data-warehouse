@@ -13,7 +13,16 @@ models:
       - name: email
         tests:
           - not_null
+      - name: email_masked
+        tests:
+          - not_null
       - name: phone
+        tests:
+          - not_null
+      - name: phone_masked
+        tests:
+          - not_null
+      - name: customer_name_masked
         tests:
           - not_null
       - name: customer_status
@@ -36,6 +45,9 @@ models:
         tests:
           - not_null
       - name: card_number
+        tests:
+          - not_null
+      - name: card_number_masked
         tests:
           - not_null
       - name: card_status
