@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: int_customer_scd_events
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+      - name: effective_from
+        tests:
+          - not_null
+      - name: effective_to
+        tests:
+          - not_null
+      - name: is_current
+        tests:
+          - not_null
+      - name: record_hash
+        tests:
+          - not_null
+      - name: source_record_id
+        tests:
+          - not_null
+          - unique

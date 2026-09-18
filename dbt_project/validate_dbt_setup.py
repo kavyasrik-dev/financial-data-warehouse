@@ -15,8 +15,11 @@ REQUIRED_FILES = [
     ROOT / "models" / "staging" / "stg_customers.sql",
     ROOT / "models" / "staging" / "stg_cards.sql",
     ROOT / "models" / "staging" / "stg_transactions.sql",
+    ROOT / "models" / "warehouse" / "int_customer_scd_events.sql",
+    ROOT / "models" / "warehouse" / "schema.yml",
     ROOT / "macros" / "generate_schema_name.sql",
     ROOT / "macros" / "pii_masking.sql",
+    ROOT / "macros" / "scd_type2.sql",
 ]
 
 
@@ -65,6 +68,25 @@ def validate_files() -> None:
     for expected in ["customer_name_masked", "email_masked", "phone_masked"]:
         assert expected in customers_sql, f"stg_customers.sql missing {expected}"
     assert "card_number_masked" in cards_sql, "stg_cards.sql missing card_number_masked"
+
+    scd_macro = text(ROOT / "macros" / "scd_type2.sql")
+    scd_model = text(ROOT / "models" / "warehouse" / "int_customer_scd_events.sql")
+    warehouse_schema = text(ROOT / "models" / "warehouse" / "schema.yml")
+    assert "macro customer_scd_record_hash" in scd_macro, "scd_type2.sql missing customer SCD hash macro"
+    for tracked_attribute in ["email", "phone", "address", "customer_status"]:
+        assert tracked_attribute in scd_macro, f"SCD hash missing {tracked_attribute}"
+    for required_sql in [
+        "ref('stg_customers')",
+        "customer_scd_record_hash()",
+        "lag(record_hash) over",
+        "lead(created_at) over",
+        "effective_from",
+        "effective_to",
+        "is_current",
+    ]:
+        assert required_sql in scd_model, f"int_customer_scd_events.sql missing {required_sql}"
+    for tested_column in ["customer_id", "effective_from", "effective_to", "is_current", "record_hash"]:
+        assert f"name: {tested_column}" in warehouse_schema, f"warehouse schema missing {tested_column} test"
 
 
 def run_dbt_debug() -> None:
