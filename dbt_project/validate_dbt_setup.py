@@ -16,10 +16,14 @@ REQUIRED_FILES = [
     ROOT / "models" / "staging" / "stg_cards.sql",
     ROOT / "models" / "staging" / "stg_transactions.sql",
     ROOT / "models" / "warehouse" / "int_customer_scd_events.sql",
+    ROOT / "models" / "warehouse" / "dim_customer.sql",
     ROOT / "models" / "warehouse" / "schema.yml",
     ROOT / "macros" / "generate_schema_name.sql",
     ROOT / "macros" / "pii_masking.sql",
     ROOT / "macros" / "scd_type2.sql",
+    ROOT / "tests" / "assert_dim_customer_current_open_ended.sql",
+    ROOT / "tests" / "assert_dim_customer_no_overlaps.sql",
+    ROOT / "tests" / "assert_dim_customer_one_current_record.sql",
 ]
 
 
@@ -87,6 +91,28 @@ def validate_files() -> None:
         assert required_sql in scd_model, f"int_customer_scd_events.sql missing {required_sql}"
     for tested_column in ["customer_id", "effective_from", "effective_to", "is_current", "record_hash"]:
         assert f"name: {tested_column}" in warehouse_schema, f"warehouse schema missing {tested_column} test"
+
+    dim_customer = text(ROOT / "models" / "warehouse" / "dim_customer.sql")
+    for required_sql in [
+        "ref('int_customer_scd_events')",
+        "customer_sk",
+        "customer_name_masked",
+        "email_masked",
+        "phone_masked",
+        "effective_from",
+        "effective_to",
+        "is_current",
+        "record_hash",
+    ]:
+        assert required_sql in dim_customer, f"dim_customer.sql missing {required_sql}"
+    for sensitive_column in ["customer_name,", "email,", "phone,"]:
+        assert sensitive_column not in dim_customer, f"dim_customer.sql exposes raw PII column {sensitive_column}"
+    for test_name in [
+        "assert_dim_customer_current_open_ended.sql",
+        "assert_dim_customer_no_overlaps.sql",
+        "assert_dim_customer_one_current_record.sql",
+    ]:
+        assert "ref('dim_customer')" in text(ROOT / "tests" / test_name), f"{test_name} missing dim_customer ref"
 
 
 def run_dbt_debug() -> None:
