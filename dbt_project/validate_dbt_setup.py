@@ -17,11 +17,13 @@ REQUIRED_FILES = [
     ROOT / "models" / "staging" / "stg_transactions.sql",
     ROOT / "models" / "warehouse" / "int_customer_scd_events.sql",
     ROOT / "models" / "warehouse" / "dim_customer.sql",
+    ROOT / "models" / "warehouse" / "dim_card.sql",
     ROOT / "models" / "warehouse" / "schema.yml",
     ROOT / "macros" / "generate_schema_name.sql",
     ROOT / "macros" / "pii_masking.sql",
     ROOT / "macros" / "scd_type2.sql",
     ROOT / "tests" / "assert_dim_customer_current_open_ended.sql",
+    ROOT / "tests" / "assert_dim_card_masked_numbers.sql",
     ROOT / "tests" / "assert_dim_customer_no_overlaps.sql",
     ROOT / "tests" / "assert_dim_customer_one_current_record.sql",
 ]
@@ -113,6 +115,28 @@ def validate_files() -> None:
         "assert_dim_customer_one_current_record.sql",
     ]:
         assert "ref('dim_customer')" in text(ROOT / "tests" / test_name), f"{test_name} missing dim_customer ref"
+
+    dim_card = text(ROOT / "models" / "warehouse" / "dim_card.sql")
+    for required_sql in [
+        "ref('stg_cards')",
+        "card_sk",
+        "card_id",
+        "customer_id",
+        "card_number_masked as masked_card_number",
+        "card_type",
+        "expiry_date",
+        "card_status",
+    ]:
+        assert required_sql in dim_card, f"dim_card.sql missing {required_sql}"
+    for line in dim_card.splitlines():
+        selected_column = line.strip().lower()
+        assert selected_column not in {"card_number", "card_number,"}, "dim_card.sql exposes raw card number"
+        assert not selected_column.startswith("card_number as "), "dim_card.sql exposes raw card number"
+    for tested_column in ["card_sk", "card_id", "masked_card_number", "card_type", "card_status"]:
+        assert f"name: {tested_column}" in warehouse_schema, f"warehouse schema missing {tested_column} test"
+    card_mask_test = text(ROOT / "tests" / "assert_dim_card_masked_numbers.sql")
+    assert "ref('dim_card')" in card_mask_test, "assert_dim_card_masked_numbers.sql missing dim_card ref"
+    assert "masked_card_number" in card_mask_test, "assert_dim_card_masked_numbers.sql missing masked_card_number check"
 
 
 def run_dbt_debug() -> None:
