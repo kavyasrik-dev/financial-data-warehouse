@@ -24,6 +24,9 @@ REQUIRED_FILES = [
     ROOT / "macros" / "scd_type2.sql",
     ROOT / "tests" / "assert_dim_customer_current_open_ended.sql",
     ROOT / "tests" / "assert_dim_card_masked_numbers.sql",
+    ROOT / "tests" / "assert_dim_card_customer_referential_integrity.sql",
+    ROOT / "tests" / "assert_dim_customer_history_coverage.sql",
+    ROOT / "tests" / "assert_dim_customer_masked_pii.sql",
     ROOT / "tests" / "assert_dim_customer_no_overlaps.sql",
     ROOT / "tests" / "assert_dim_customer_one_current_record.sql",
 ]
@@ -111,6 +114,8 @@ def validate_files() -> None:
         assert sensitive_column not in dim_customer, f"dim_customer.sql exposes raw PII column {sensitive_column}"
     for test_name in [
         "assert_dim_customer_current_open_ended.sql",
+        "assert_dim_customer_history_coverage.sql",
+        "assert_dim_customer_masked_pii.sql",
         "assert_dim_customer_no_overlaps.sql",
         "assert_dim_customer_one_current_record.sql",
     ]:
@@ -137,25 +142,37 @@ def validate_files() -> None:
     card_mask_test = text(ROOT / "tests" / "assert_dim_card_masked_numbers.sql")
     assert "ref('dim_card')" in card_mask_test, "assert_dim_card_masked_numbers.sql missing dim_card ref"
     assert "masked_card_number" in card_mask_test, "assert_dim_card_masked_numbers.sql missing masked_card_number check"
+    card_ri_test = text(ROOT / "tests" / "assert_dim_card_customer_referential_integrity.sql")
+    assert "ref('dim_card')" in card_ri_test, "card referential integrity test missing dim_card ref"
+    assert "ref('dim_customer')" in card_ri_test, "card referential integrity test missing dim_customer ref"
+    customer_history_test = text(ROOT / "tests" / "assert_dim_customer_history_coverage.sql")
+    assert "ref('stg_customers')" in customer_history_test, "customer history coverage test missing stg_customers ref"
+    customer_mask_test = text(ROOT / "tests" / "assert_dim_customer_masked_pii.sql")
+    for masked_column in ["email_masked", "phone_masked", "customer_name_masked"]:
+        assert masked_column in customer_mask_test, f"customer masking test missing {masked_column}"
 
 
-def run_dbt_debug() -> None:
+def run_dbt_command(*args: str) -> None:
     if shutil.which("dbt") is None:
         raise RuntimeError("dbt is not installed on PATH")
     subprocess.run(
-        ["dbt", "debug", "--project-dir", str(ROOT), "--profiles-dir", str(ROOT)],
+        ["dbt", *args, "--project-dir", str(ROOT), "--profiles-dir", str(ROOT)],
         check=True,
     )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Validate Day 8 dbt setup.")
+    parser = argparse.ArgumentParser(description="Validate dbt setup and Week 2 integration checks.")
     parser.add_argument("--run-dbt-debug", action="store_true")
+    parser.add_argument("--run-dbt-integration", action="store_true")
     args = parser.parse_args()
 
     validate_files()
     if args.run_dbt_debug:
-        run_dbt_debug()
+        run_dbt_command("debug")
+    if args.run_dbt_integration:
+        run_dbt_command("run")
+        run_dbt_command("test")
     print("dbt setup validation passed")
 
 
