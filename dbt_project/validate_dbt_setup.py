@@ -18,6 +18,7 @@ REQUIRED_FILES = [
     ROOT / "models" / "warehouse" / "int_customer_scd_events.sql",
     ROOT / "models" / "warehouse" / "dim_customer.sql",
     ROOT / "models" / "warehouse" / "dim_card.sql",
+    ROOT / "models" / "warehouse" / "dim_date.sql",
     ROOT / "models" / "warehouse" / "schema.yml",
     ROOT / "macros" / "generate_schema_name.sql",
     ROOT / "macros" / "pii_masking.sql",
@@ -27,6 +28,9 @@ REQUIRED_FILES = [
     ROOT / "tests" / "assert_dim_card_customer_referential_integrity.sql",
     ROOT / "tests" / "assert_dim_customer_history_coverage.sql",
     ROOT / "tests" / "assert_dim_customer_masked_pii.sql",
+    ROOT / "tests" / "assert_dim_date_covers_transactions.sql",
+    ROOT / "tests" / "assert_dim_date_key_matches_date.sql",
+    ROOT / "tests" / "assert_dim_date_no_gaps.sql",
     ROOT / "tests" / "assert_dim_customer_no_overlaps.sql",
     ROOT / "tests" / "assert_dim_customer_one_current_record.sql",
 ]
@@ -150,6 +154,31 @@ def validate_files() -> None:
     customer_mask_test = text(ROOT / "tests" / "assert_dim_customer_masked_pii.sql")
     for masked_column in ["email_masked", "phone_masked", "customer_name_masked"]:
         assert masked_column in customer_mask_test, f"customer masking test missing {masked_column}"
+
+    dim_date = text(ROOT / "models" / "warehouse" / "dim_date.sql")
+    for required_sql in [
+        "generate_series",
+        "date_key",
+        "full_date",
+        "extract(day from full_date)",
+        "extract(month from full_date)",
+        "extract(quarter from full_date)",
+        "extract(year from full_date)",
+        "extract(week from full_date)",
+        "extract(isodow from full_date)",
+        "is_weekend",
+    ]:
+        assert required_sql in dim_date, f"dim_date.sql missing {required_sql}"
+    for tested_column in ["date_key", "full_date", "day", "month", "quarter", "year", "week", "day_of_week"]:
+        assert f"name: {tested_column}" in warehouse_schema, f"warehouse schema missing {tested_column} test"
+    for test_name in [
+        "assert_dim_date_covers_transactions.sql",
+        "assert_dim_date_key_matches_date.sql",
+        "assert_dim_date_no_gaps.sql",
+    ]:
+        assert "ref('dim_date')" in text(ROOT / "tests" / test_name), f"{test_name} missing dim_date ref"
+    date_coverage_test = text(ROOT / "tests" / "assert_dim_date_covers_transactions.sql")
+    assert "ref('stg_transactions')" in date_coverage_test, "date coverage test missing stg_transactions ref"
 
 
 def run_dbt_command(*args: str) -> None:
