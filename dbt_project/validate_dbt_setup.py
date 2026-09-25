@@ -19,6 +19,7 @@ REQUIRED_FILES = [
     ROOT / "models" / "warehouse" / "dim_customer.sql",
     ROOT / "models" / "warehouse" / "dim_card.sql",
     ROOT / "models" / "warehouse" / "dim_date.sql",
+    ROOT / "models" / "warehouse" / "fact_transactions.sql",
     ROOT / "models" / "warehouse" / "schema.yml",
     ROOT / "macros" / "generate_schema_name.sql",
     ROOT / "macros" / "pii_masking.sql",
@@ -31,6 +32,9 @@ REQUIRED_FILES = [
     ROOT / "tests" / "assert_dim_date_covers_transactions.sql",
     ROOT / "tests" / "assert_dim_date_key_matches_date.sql",
     ROOT / "tests" / "assert_dim_date_no_gaps.sql",
+    ROOT / "tests" / "assert_fact_transactions_covers_staged_transactions.sql",
+    ROOT / "tests" / "assert_fact_transactions_dimension_links.sql",
+    ROOT / "tests" / "assert_fact_transactions_no_duplicate_transactions.sql",
     ROOT / "tests" / "assert_dim_customer_no_overlaps.sql",
     ROOT / "tests" / "assert_dim_customer_one_current_record.sql",
 ]
@@ -179,6 +183,42 @@ def validate_files() -> None:
         assert "ref('dim_date')" in text(ROOT / "tests" / test_name), f"{test_name} missing dim_date ref"
     date_coverage_test = text(ROOT / "tests" / "assert_dim_date_covers_transactions.sql")
     assert "ref('stg_transactions')" in date_coverage_test, "date coverage test missing stg_transactions ref"
+
+    fact_transactions = text(ROOT / "models" / "warehouse" / "fact_transactions.sql")
+    for required_sql in [
+        "ref('stg_transactions')",
+        "ref('dim_customer')",
+        "ref('dim_card')",
+        "ref('dim_date')",
+        "transaction_sk",
+        "transaction_id",
+        "customer_sk",
+        "card_sk",
+        "date_key",
+        "transaction_timestamp",
+        "transaction_type",
+        "transaction_status",
+        "amount",
+        "currency",
+        "merchant_name",
+        "merchant_category",
+    ]:
+        assert required_sql in fact_transactions, f"fact_transactions.sql missing {required_sql}"
+    for required_join in [
+        "transactions.transaction_timestamp >= dim_customer.effective_from",
+        "transactions.transaction_timestamp < dim_customer.effective_to",
+        "transactions.card_id = dim_card.card_id",
+        "transactions.transaction_timestamp::date = dim_date.full_date",
+    ]:
+        assert required_join in fact_transactions, f"fact_transactions.sql missing join {required_join}"
+    for tested_column in ["transaction_sk", "transaction_id", "customer_sk", "card_sk", "date_key", "amount"]:
+        assert f"name: {tested_column}" in warehouse_schema, f"warehouse schema missing {tested_column} test"
+    for test_name in [
+        "assert_fact_transactions_covers_staged_transactions.sql",
+        "assert_fact_transactions_dimension_links.sql",
+        "assert_fact_transactions_no_duplicate_transactions.sql",
+    ]:
+        assert "ref('fact_transactions')" in text(ROOT / "tests" / test_name), f"{test_name} missing fact_transactions ref"
 
 
 def run_dbt_command(*args: str) -> None:
