@@ -21,6 +21,10 @@ REQUIRED_FILES = [
     ROOT / "models" / "warehouse" / "dim_date.sql",
     ROOT / "models" / "warehouse" / "fact_transactions.sql",
     ROOT / "models" / "warehouse" / "schema.yml",
+    ROOT / "models" / "marts" / "mart_daily_transaction_metrics.sql",
+    ROOT / "models" / "marts" / "mart_customer_activity.sql",
+    ROOT / "models" / "marts" / "mart_transaction_summary.sql",
+    ROOT / "models" / "marts" / "schema.yml",
     ROOT / "macros" / "generate_schema_name.sql",
     ROOT / "macros" / "pii_masking.sql",
     ROOT / "macros" / "scd_type2.sql",
@@ -35,6 +39,9 @@ REQUIRED_FILES = [
     ROOT / "tests" / "assert_fact_transactions_covers_staged_transactions.sql",
     ROOT / "tests" / "assert_fact_transactions_dimension_links.sql",
     ROOT / "tests" / "assert_fact_transactions_no_duplicate_transactions.sql",
+    ROOT / "tests" / "assert_mart_customer_activity_matches_fact.sql",
+    ROOT / "tests" / "assert_mart_daily_metrics_match_fact.sql",
+    ROOT / "tests" / "assert_mart_transaction_summary_matches_fact.sql",
     ROOT / "tests" / "assert_dim_customer_no_overlaps.sql",
     ROOT / "tests" / "assert_dim_customer_one_current_record.sql",
 ]
@@ -219,6 +226,61 @@ def validate_files() -> None:
         "assert_fact_transactions_no_duplicate_transactions.sql",
     ]:
         assert "ref('fact_transactions')" in text(ROOT / "tests" / test_name), f"{test_name} missing fact_transactions ref"
+
+    marts_schema = text(ROOT / "models" / "marts" / "schema.yml")
+    mart_specs = {
+        "mart_daily_transaction_metrics": [
+            "ref('fact_transactions')",
+            "ref('dim_date')",
+            "date_key",
+            "full_date",
+            "total_transactions",
+            "total_transaction_amount",
+            "average_transaction_amount",
+            "successful_transactions",
+            "failed_transactions",
+        ],
+        "mart_customer_activity": [
+            "ref('fact_transactions')",
+            "ref('dim_customer')",
+            "customer_sk",
+            "customer_id",
+            "customer_name_masked",
+            "total_transactions",
+            "total_transaction_amount",
+            "average_transaction_amount",
+            "successful_transactions",
+            "failed_transactions",
+        ],
+        "mart_transaction_summary": [
+            "ref('fact_transactions')",
+            "merchant_category",
+            "transaction_type",
+            "transaction_status",
+            "currency",
+            "total_transactions",
+            "total_transaction_amount",
+            "average_transaction_amount",
+        ],
+    }
+    for mart_name, required_sql_parts in mart_specs.items():
+        mart_sql = text(ROOT / "models" / "marts" / f"{mart_name}.sql")
+        assert f"name: {mart_name}" in marts_schema, f"marts schema missing {mart_name}"
+        for required_sql in required_sql_parts:
+            assert required_sql in mart_sql, f"{mart_name}.sql missing {required_sql}"
+        for metric in ["total_transactions", "total_transaction_amount", "average_transaction_amount"]:
+            assert f"name: {metric}" in marts_schema, f"marts schema missing {mart_name}.{metric}"
+    customer_activity_sql = text(ROOT / "models" / "marts" / "mart_customer_activity.sql")
+    for sensitive_column in ["email_masked", "phone_masked", "email", "phone"]:
+        assert sensitive_column not in customer_activity_sql, f"mart_customer_activity.sql exposes {sensitive_column}"
+    for test_name, mart_name in [
+        ("assert_mart_customer_activity_matches_fact.sql", "mart_customer_activity"),
+        ("assert_mart_daily_metrics_match_fact.sql", "mart_daily_transaction_metrics"),
+        ("assert_mart_transaction_summary_matches_fact.sql", "mart_transaction_summary"),
+    ]:
+        test_sql = text(ROOT / "tests" / test_name)
+        assert "ref('fact_transactions')" in test_sql, f"{test_name} missing fact_transactions ref"
+        assert f"ref('{mart_name}')" in test_sql, f"{test_name} missing {mart_name} ref"
 
 
 def run_dbt_command(*args: str) -> None:
