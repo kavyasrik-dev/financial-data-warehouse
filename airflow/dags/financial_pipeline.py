@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 
+from pipeline_callbacks import write_dag_success_marker, write_task_failure_alert
+
 
 PROJECT_HOME = "/opt/airflow"
 DBT_PROJECT_DIR = f"{PROJECT_HOME}/dbt_project"
@@ -18,6 +20,7 @@ DEFAULT_ARGS = {
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
     "execution_timeout": timedelta(minutes=30),
+    "on_failure_callback": write_task_failure_alert,
 }
 
 
@@ -36,6 +39,8 @@ with DAG(
     schedule="@daily",
     catchup=False,
     max_active_runs=1,
+    dagrun_timeout=timedelta(hours=2),
+    on_success_callback=write_dag_success_marker,
     tags=["financial-warehouse", "dbt", "data-quality"],
 ) as dag:
     generate_customers = airflow_bash_task(
