@@ -133,6 +133,31 @@ services:
     networks:
       - financial_warehouse
 
+  metabase-setup:
+    image: ${METABASE_SETUP_IMAGE:-python:3.11-slim}
+    environment:
+      METABASE_URL: http://metabase:3000
+      METABASE_ADMIN_EMAIL: ${METABASE_ADMIN_EMAIL:-admin@example.com}
+      METABASE_ADMIN_PASSWORD: ${METABASE_ADMIN_PASSWORD:-admin12345}
+      METABASE_ADMIN_FIRST_NAME: ${METABASE_ADMIN_FIRST_NAME:-Admin}
+      METABASE_ADMIN_LAST_NAME: ${METABASE_ADMIN_LAST_NAME:-User}
+      METABASE_REPORTING_DB_NAME: ${METABASE_REPORTING_DB_NAME:-financial_warehouse}
+      METABASE_REPORTING_DB_HOST: postgres
+      METABASE_REPORTING_DB_PORT: 5432
+      METABASE_REPORTING_DB_USER: ${METABASE_REPORTING_DB_USER:-metabase_reporting}
+      METABASE_REPORTING_DB_PASSWORD: ${METABASE_REPORTING_DB_PASSWORD:-metabase_reporting}
+    volumes:
+      - ./metabase:/opt/metabase:ro
+    command: python /opt/metabase/provision_metabase.py
+    depends_on:
+      metabase:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - financial_warehouse
+
 volumes:
   postgres_data:
   metabase_data:

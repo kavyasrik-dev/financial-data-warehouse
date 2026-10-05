@@ -7,6 +7,7 @@ CREATE SCHEMA IF NOT EXISTS analytics;
 
 GRANT USAGE ON SCHEMA raw, staging, warehouse, analytics TO warehouse_app;
 GRANT CREATE ON SCHEMA staging, warehouse, analytics TO warehouse_app;
+GRANT USAGE ON SCHEMA analytics TO metabase_reporting;
 
 CREATE TABLE IF NOT EXISTS raw.ingestion_batches (
     load_batch_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -167,12 +168,19 @@ CREATE INDEX IF NOT EXISTS idx_fact_transactions_card_sk ON warehouse.fact_trans
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA raw, staging, warehouse, analytics TO warehouse_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA raw, staging, warehouse, analytics TO warehouse_app;
+GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO metabase_reporting;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA staging, warehouse, analytics
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO warehouse_app;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA staging, warehouse, analytics
     GRANT USAGE, SELECT ON SEQUENCES TO warehouse_app;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA analytics
+    GRANT SELECT ON TABLES TO metabase_reporting;
+
+ALTER ROLE metabase_reporting IN DATABASE financial_warehouse
+    SET search_path = analytics, public;
 
 ALTER ROLE warehouse_app IN DATABASE financial_warehouse
     SET search_path = analytics, warehouse, staging, raw, public;

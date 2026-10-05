@@ -18,6 +18,12 @@ BEGIN
     ELSE
         ALTER ROLE warehouse_app WITH LOGIN PASSWORD 'warehouse_app';
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'metabase_reporting') THEN
+        CREATE ROLE metabase_reporting WITH LOGIN PASSWORD 'metabase_reporting';
+    ELSE
+        ALTER ROLE metabase_reporting WITH LOGIN PASSWORD 'metabase_reporting';
+    END IF;
 END
 $$;
 
@@ -34,3 +40,4 @@ SELECT 'ALTER DATABASE metabase_metadata OWNER TO metabase'
 WHERE EXISTS (SELECT 1 FROM pg_database WHERE datname = 'metabase_metadata')\gexec
 
 GRANT CONNECT ON DATABASE financial_warehouse TO warehouse_app;
+GRANT CONNECT ON DATABASE financial_warehouse TO metabase_reporting;
