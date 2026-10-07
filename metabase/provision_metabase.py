@@ -12,9 +12,10 @@ from typing import Any
 METABASE_URL = os.environ.get("METABASE_URL", "http://metabase:3000").rstrip("/")
 ANALYTICS_SCHEMA = "analytics"
 DATABASE_NAME = "Financial Warehouse Analytics"
-DASHBOARD_NAME = "Transaction Overview"
+TRANSACTION_DASHBOARD_NAME = "Transaction Overview"
+CUSTOMER_DASHBOARD_NAME = "Customer Analytics"
 
-QUESTION_DEFINITIONS = [
+TRANSACTION_QUESTION_DEFINITIONS = [
     {
         "name": "Total transactions",
         "display": "scalar",
@@ -81,6 +82,56 @@ QUESTION_DEFINITIONS = [
             "group by transaction_status order by transaction_status"
         ),
         "position": {"row": 12, "col": 6, "size_x": 6, "size_y": 6},
+    },
+]
+
+CUSTOMER_QUESTION_DEFINITIONS = [
+    {
+        "name": "Active customers",
+        "display": "scalar",
+        "query": (
+            "select count(*) as active_customers from analytics.mart_customer_activity "
+            "where customer_status = 'active'"
+        ),
+        "position": {"row": 0, "col": 0, "size_x": 4, "size_y": 3},
+    },
+    {
+        "name": "New customers",
+        "display": "scalar",
+        "query": (
+            "select count(*) as new_customers from analytics.mart_customer_activity "
+            "where first_transaction_at >= current_date - interval '30 days'"
+        ),
+        "position": {"row": 0, "col": 4, "size_x": 4, "size_y": 3},
+    },
+    {
+        "name": "Customer status distribution",
+        "display": "pie",
+        "query": (
+            "select customer_status, count(*) as customers from analytics.mart_customer_activity "
+            "group by customer_status order by customers desc"
+        ),
+        "position": {"row": 0, "col": 8, "size_x": 4, "size_y": 3},
+    },
+    {
+        "name": "Customer transaction activity",
+        "display": "table",
+        "query": (
+            "select customer_name_masked, total_transactions, total_transaction_amount, "
+            "average_transaction_amount, successful_transactions, failed_transactions, last_transaction_at "
+            "from analytics.mart_customer_activity order by total_transactions desc, "
+            "total_transaction_amount desc limit 20"
+        ),
+        "position": {"row": 3, "col": 0, "size_x": 12, "size_y": 7},
+    },
+    {
+        "name": "Top customers",
+        "display": "bar",
+        "query": (
+            "select customer_name_masked, total_transaction_amount from analytics.mart_customer_activity "
+            "order by total_transaction_amount desc limit 10"
+        ),
+        "position": {"row": 10, "col": 0, "size_x": 12, "size_y": 6},
     },
 ]
 
@@ -205,12 +256,12 @@ def ensure_card(session_id: str, database_id: int, definition: dict[str, Any]) -
     return int(created["id"])
 
 
-def ensure_dashboard(session_id: str) -> int:
-    dashboards = request_json("GET", f"/api/dashboard?query={urllib.parse.quote(DASHBOARD_NAME)}", token=session_id)
+def ensure_dashboard(session_id: str, dashboard_name: str) -> int:
+    dashboards = request_json("GET", f"/api/dashboard?query={urllib.parse.quote(dashboard_name)}", token=session_id)
     for dashboard in dashboards.get("data", []):
-        if dashboard.get("name") == DASHBOARD_NAME:
+        if dashboard.get("name") == dashboard_name:
             return int(dashboard["id"])
-    created = request_json("POST", "/api/dashboard", {"name": DASHBOARD_NAME}, token=session_id)
+    created = request_json("POST", "/api/dashboard", {"name": dashboard_name}, token=session_id)
     return int(created["id"])
 
 
@@ -228,11 +279,34 @@ def ensure_dashboard_card(session_id: str, dashboard_id: int, card_id: int, posi
     request_json("PUT", f"/api/dashboard/{dashboard_id}/cards/{created['id']}", position, token=session_id)
 
 
-def ensure_transaction_dashboard(session_id: str, database_id: int) -> None:
-    dashboard_id = ensure_dashboard(session_id)
-    for definition in QUESTION_DEFINITIONS:
+def ensure_dashboard_questions(
+    session_id: str,
+    database_id: int,
+    dashboard_name: str,
+    definitions: list[dict[str, Any]],
+) -> None:
+    dashboard_id = ensure_dashboard(session_id, dashboard_name)
+    for definition in definitions:
         card_id = ensure_card(session_id, database_id, definition)
         ensure_dashboard_card(session_id, dashboard_id, card_id, definition["position"])
+
+
+def ensure_transaction_dashboard(session_id: str, database_id: int) -> None:
+    ensure_dashboard_questions(
+        session_id,
+        database_id,
+        TRANSACTION_DASHBOARD_NAME,
+        TRANSACTION_QUESTION_DEFINITIONS,
+    )
+
+
+def ensure_customer_dashboard(session_id: str, database_id: int) -> None:
+    ensure_dashboard_questions(
+        session_id,
+        database_id,
+        CUSTOMER_DASHBOARD_NAME,
+        CUSTOMER_QUESTION_DEFINITIONS,
+    )
 
 
 def main() -> None:
@@ -240,6 +314,7 @@ def main() -> None:
     session_id = setup_metabase_if_needed()
     database_id = ensure_analytics_database(session_id)
     ensure_transaction_dashboard(session_id, database_id)
+    ensure_customer_dashboard(session_id, database_id)
     print("metabase analytics-only setup completed")
 
 

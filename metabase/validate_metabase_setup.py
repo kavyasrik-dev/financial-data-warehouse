@@ -21,6 +21,13 @@ def assert_contains(path: Path, values: list[str]) -> None:
             raise AssertionError(f"{path}: missing {value}")
 
 
+def assert_not_contains(path: Path, values: list[str]) -> None:
+    source = text(path)
+    for value in values:
+        if value in source:
+            raise AssertionError(f"{path}: contains forbidden value {value}")
+
+
 def main() -> None:
     provision = ROOT / "metabase" / "provision_metabase.py"
     ast.parse(text(provision))
@@ -60,9 +67,9 @@ def main() -> None:
             "analytics",
             "METABASE_REPORTING_DB_USER",
             "METABASE_REPORTING_DB_PASSWORD",
-            "DASHBOARD_NAME",
+            "TRANSACTION_DASHBOARD_NAME",
             "Transaction Overview",
-            "QUESTION_DEFINITIONS",
+            "TRANSACTION_QUESTION_DEFINITIONS",
             "Total transactions",
             "Total transaction volume",
             "Average transaction amount",
@@ -74,9 +81,24 @@ def main() -> None:
             "analytics.mart_daily_transaction_metrics",
             "analytics.mart_transaction_summary",
             "ensure_transaction_dashboard",
+            "CUSTOMER_DASHBOARD_NAME",
+            "Customer Analytics",
+            "CUSTOMER_QUESTION_DEFINITIONS",
+            "Active customers",
+            "New customers",
+            "Customer transaction activity",
+            "Top customers",
+            "Customer status distribution",
+            "analytics.mart_customer_activity",
+            "customer_name_masked",
+            "ensure_customer_dashboard",
             "/api/dashboard",
             "/api/card",
         ],
+    )
+    assert_not_contains(
+        provision,
+        ["email_masked", "phone_masked", "raw.", "staging.", "warehouse.dim_customer"],
     )
     print("metabase setup validation passed")
 
