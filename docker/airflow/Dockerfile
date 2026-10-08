@@ -10,4 +10,7 @@ COPY airflow/requirements.txt /tmp/requirements.txt
 
 RUN pip install --no-cache-dir \
     --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt" \
-    -r /tmp/requirements.txt
+    apache-airflow-providers-postgres==6.0.0 \
+    pandas==2.1.4 \
+    psycopg2-binary==2.9.10 && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
