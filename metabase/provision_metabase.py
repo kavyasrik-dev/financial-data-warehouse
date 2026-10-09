@@ -156,6 +156,14 @@ def request_json(method: str, path: str, payload: dict[str, Any] | None = None, 
     return json.loads(body.decode("utf-8"))
 
 
+def response_items(response: Any) -> list[dict[str, Any]]:
+    if isinstance(response, list):
+        return response
+    if isinstance(response, dict):
+        return response.get("data", [])
+    raise TypeError(f"expected a JSON collection, got {type(response).__name__}")
+
+
 def wait_for_metabase() -> None:
     for _ in range(60):
         try:
@@ -193,7 +201,7 @@ def reporting_database_payload() -> dict[str, Any]:
 def setup_metabase_if_needed() -> str:
     properties = request_json("GET", "/api/session/properties")
     setup_token = properties.get("setup-token")
-    if setup_token:
+    if setup_token and not properties.get("has-user-setup"):
         payload = {
             "token": setup_token,
             "user": {
@@ -223,7 +231,7 @@ def login() -> str:
 
 
 def ensure_analytics_database(session_id: str) -> int:
-    databases = request_json("GET", "/api/database", token=session_id).get("data", [])
+    databases = response_items(request_json("GET", "/api/database", token=session_id))
     payload = reporting_database_payload()
     for database in databases:
         if database.get("name") == payload["name"]:
@@ -247,8 +255,10 @@ def card_payload(database_id: int, definition: dict[str, Any]) -> dict[str, Any]
 
 
 def ensure_card(session_id: str, database_id: int, definition: dict[str, Any]) -> int:
-    cards = request_json("GET", f"/api/card?f=all&query={urllib.parse.quote(definition['name'])}", token=session_id)
-    for card in cards.get("data", []):
+    cards = response_items(
+        request_json("GET", f"/api/card?f=all&query={urllib.parse.quote(definition['name'])}", token=session_id)
+    )
+    for card in cards:
         if card.get("name") == definition["name"]:
             request_json("PUT", f"/api/card/{card['id']}", card_payload(database_id, definition), token=session_id)
             return int(card["id"])
@@ -257,8 +267,10 @@ def ensure_card(session_id: str, database_id: int, definition: dict[str, Any]) -
 
 
 def ensure_dashboard(session_id: str, dashboard_name: str) -> int:
-    dashboards = request_json("GET", f"/api/dashboard?query={urllib.parse.quote(dashboard_name)}", token=session_id)
-    for dashboard in dashboards.get("data", []):
+    dashboards = response_items(
+        request_json("GET", f"/api/dashboard?query={urllib.parse.quote(dashboard_name)}", token=session_id)
+    )
+    for dashboard in dashboards:
         if dashboard.get("name") == dashboard_name:
             return int(dashboard["id"])
     created = request_json("POST", "/api/dashboard", {"name": dashboard_name}, token=session_id)
@@ -271,12 +283,22 @@ def dashboard_cards(session_id: str, dashboard_id: int) -> list[dict[str, Any]]:
 
 
 def ensure_dashboard_card(session_id: str, dashboard_id: int, card_id: int, position: dict[str, int]) -> None:
-    for dashboard_card in dashboard_cards(session_id, dashboard_id):
+    cards = dashboard_cards(session_id, dashboard_id)
+    for dashboard_card in cards:
         if dashboard_card.get("card_id") == card_id:
-            request_json("PUT", f"/api/dashboard/{dashboard_id}/cards/{dashboard_card['id']}", position, token=session_id)
+            dashboard_card.update(position)
+            request_json("PUT", f"/api/dashboard/{dashboard_id}", {"dashcards": cards}, token=session_id)
             return
-    created = request_json("POST", f"/api/dashboard/{dashboard_id}/cards", {"cardId": card_id}, token=session_id)
-    request_json("PUT", f"/api/dashboard/{dashboard_id}/cards/{created['id']}", position, token=session_id)
+    cards.append(
+        {
+            "id": -card_id,
+            "card_id": card_id,
+            "parameter_mappings": [],
+            "series": [],
+            **position,
+        }
+    )
+    request_json("PUT", f"/api/dashboard/{dashboard_id}", {"dashcards": cards}, token=session_id)
 
 
 def ensure_dashboard_questions(
