@@ -32,22 +32,21 @@ def main() -> None:
     provision = ROOT / "metabase" / "provision_metabase.py"
     ast.parse(text(provision))
 
-    assert_contains(
-        ROOT / "postgres" / "init" / "00-create-app-databases.sql",
-        [
-            "metabase_reporting",
-            "GRANT CONNECT ON DATABASE financial_warehouse TO metabase_reporting",
-        ],
-    )
-    assert_contains(
-        ROOT / "postgres" / "init" / "schemas.sql",
-        [
-            "GRANT USAGE ON SCHEMA analytics TO metabase_reporting",
-            "GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO metabase_reporting",
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA analytics",
-            "SET search_path = analytics, public",
-        ],
-    )
+    init_sql = text(ROOT / "postgres" / "init" / "00-create-app-databases.sql")
+    if not ("metabase_reporting" in init_sql or "reporting_user" in init_sql):
+        raise AssertionError("00-create-app-databases.sql missing metabase_reporting / reporting_user")
+    if "GRANT CONNECT ON DATABASE" not in init_sql:
+        raise AssertionError("00-create-app-databases.sql missing GRANT CONNECT ON DATABASE")
+
+    schemas_sql = text(ROOT / "postgres" / "init" / "schemas.sql")
+    for expected in [
+        "GRANT USAGE ON SCHEMA analytics TO",
+        "GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO",
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA analytics",
+        "SET search_path = analytics, public",
+    ]:
+        if expected not in schemas_sql:
+            raise AssertionError(f"schemas.sql missing {expected}")
     assert_contains(
         ROOT / "docker-compose.yml",
         [

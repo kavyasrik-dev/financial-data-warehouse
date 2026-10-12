@@ -83,12 +83,16 @@ RAW_TABLES = (
 
 
 def db_config(args: argparse.Namespace) -> dict[str, str | int]:
+    password = args.password or os.getenv("WAREHOUSE_DB_PASSWORD")
+    if not password:
+        raise ValueError("WAREHOUSE_DB_PASSWORD or --password is required")
+
     return {
         "host": args.host or os.getenv("WAREHOUSE_DB_HOST", "localhost"),
         "port": int(args.port or os.getenv("WAREHOUSE_DB_PORT", "5432")),
         "dbname": args.database or os.getenv("WAREHOUSE_DB_NAME", "financial_warehouse"),
         "user": args.user or os.getenv("WAREHOUSE_DB_USER", "warehouse_app"),
-        "password": args.password or os.getenv("WAREHOUSE_DB_PASSWORD", "warehouse_app"),
+        "password": password,
     }
 
 

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.operators.bash import BashOperator
+from airflow.sdk import DAG
 
 from pipeline_callbacks import write_dag_success_marker, write_task_failure_alert
 

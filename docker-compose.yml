@@ -5,13 +5,16 @@ x-airflow-common: &airflow-common
     dockerfile: docker/airflow/Dockerfile
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-airflow}@postgres:5432/${AIRFLOW_DB_NAME:-airflow_metadata}
-    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?AIRFLOW_FERNET_KEY is required}
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?AIRFLOW_DB_PASSWORD is required}@postgres:5432/${AIRFLOW_DB_NAME:-airflow_metadata}
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY:?AIRFLOW_API_SECRET_KEY is required}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?AIRFLOW_JWT_SECRET is required}
     AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
-    AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+    AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?AIRFLOW_ADMIN_PASSWORD is required}
     AIRFLOW_ADMIN_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME:-Admin}
     AIRFLOW_ADMIN_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME:-User}
     AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
@@ -19,7 +22,7 @@ x-airflow-common: &airflow-common
     WAREHOUSE_DB_PORT: ${WAREHOUSE_DB_PORT:-5432}
     WAREHOUSE_DB_NAME: ${WAREHOUSE_DB_NAME:-financial_warehouse}
     WAREHOUSE_DB_USER: ${WAREHOUSE_DB_USER:-warehouse_app}
-    WAREHOUSE_DB_PASSWORD: ${WAREHOUSE_DB_PASSWORD:-warehouse_app}
+    WAREHOUSE_DB_PASSWORD: ${WAREHOUSE_DB_PASSWORD:?WAREHOUSE_DB_PASSWORD is required}
     DBT_TARGET: ${DBT_TARGET:-dev}
     DBT_THREADS: ${DBT_THREADS:-4}
   user: "${AIRFLOW_UID:-50000}:0"
@@ -30,8 +33,8 @@ x-airflow-common: &airflow-common
     - ./great_expectations:/opt/airflow/great_expectations
     - ./ingestion:/opt/airflow/ingestion
   depends_on:
-    postgres:
-      condition: service_healthy
+    postgres-bootstrap:
+      condition: service_completed_successfully
   networks:
     - financial_warehouse
 
@@ -40,13 +43,12 @@ services:
     image: ${POSTGRES_IMAGE:-postgres:16.4}
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-financial_warehouse}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -54,6 +56,33 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+    networks:
+      - financial_warehouse
+
+  postgres-bootstrap:
+    image: ${POSTGRES_IMAGE:-postgres:16.4}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-financial_warehouse}
+      AIRFLOW_DB_NAME: ${AIRFLOW_DB_NAME:-airflow_metadata}
+      AIRFLOW_DB_USER: ${AIRFLOW_DB_USER:-airflow}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:?AIRFLOW_DB_PASSWORD is required}
+      METABASE_DB_NAME: ${METABASE_DB_NAME:-metabase_metadata}
+      METABASE_DB_USER: ${METABASE_DB_USER:-metabase}
+      METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD:?METABASE_DB_PASSWORD is required}
+      WAREHOUSE_DB_NAME: ${WAREHOUSE_DB_NAME:-financial_warehouse}
+      WAREHOUSE_DB_USER: ${WAREHOUSE_DB_USER:-warehouse_app}
+      WAREHOUSE_DB_PASSWORD: ${WAREHOUSE_DB_PASSWORD:?WAREHOUSE_DB_PASSWORD is required}
+      METABASE_REPORTING_DB_USER: ${METABASE_REPORTING_DB_USER:-metabase_reporting}
+      METABASE_REPORTING_DB_PASSWORD: ${METABASE_REPORTING_DB_PASSWORD:?METABASE_REPORTING_DB_PASSWORD is required}
+    volumes:
+      - ./postgres/init:/opt/bootstrap:ro
+    command: ["/bin/bash", "/opt/bootstrap/bootstrap.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
     networks:
       - financial_warehouse
 
@@ -70,16 +99,19 @@ services:
           --lastname "$${AIRFLOW_ADMIN_LASTNAME}" \
           --role Admin \
           --email "$${AIRFLOW_ADMIN_EMAIL}" \
-          --password "$${AIRFLOW_ADMIN_PASSWORD}" || true
+          --password "$${AIRFLOW_ADMIN_PASSWORD}" || \
+        airflow users reset-password \
+          --username "$${AIRFLOW_ADMIN_USERNAME}" \
+          --password "$${AIRFLOW_ADMIN_PASSWORD}"
     restart: "no"
 
-  airflow-webserver:
+  airflow-api-server:
     <<: *airflow-common
-    command: webserver
+    command: api-server
     ports:
-      - "${AIRFLOW_WEBSERVER_PORT:-8080}:8080"
+      - "127.0.0.1:${AIRFLOW_WEBSERVER_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -88,8 +120,8 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
 
   airflow-scheduler:
     <<: *airflow-common
@@ -104,25 +136,41 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type DagProcessorJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres-bootstrap:
+        condition: service_completed_successfully
 
   metabase:
-    image: ${METABASE_IMAGE:-metabase/metabase:v0.50.26}
+    image: ${METABASE_IMAGE:-metabase/metabase:v0.63.18}
     environment:
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: ${METABASE_DB_NAME:-metabase_metadata}
       MB_DB_PORT: 5432
       MB_DB_USER: ${METABASE_DB_USER:-metabase}
-      MB_DB_PASS: ${METABASE_DB_PASSWORD:-metabase}
+      MB_DB_PASS: ${METABASE_DB_PASSWORD:?METABASE_DB_PASSWORD is required}
       MB_DB_HOST: postgres
     ports:
-      - "${METABASE_PORT:-3000}:3000"
+      - "127.0.0.1:${METABASE_PORT:-3000}:3000"
     volumes:
       - metabase_data:/metabase-data
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl --fail http://localhost:3000/api/health || exit 1"]
       interval: 30s
@@ -138,22 +186,22 @@ services:
     environment:
       METABASE_URL: http://metabase:3000
       METABASE_ADMIN_EMAIL: ${METABASE_ADMIN_EMAIL:-admin@example.com}
-      METABASE_ADMIN_PASSWORD: ${METABASE_ADMIN_PASSWORD:-admin12345}
+      METABASE_ADMIN_PASSWORD: ${METABASE_ADMIN_PASSWORD:?METABASE_ADMIN_PASSWORD is required}
       METABASE_ADMIN_FIRST_NAME: ${METABASE_ADMIN_FIRST_NAME:-Admin}
       METABASE_ADMIN_LAST_NAME: ${METABASE_ADMIN_LAST_NAME:-User}
       METABASE_REPORTING_DB_NAME: ${METABASE_REPORTING_DB_NAME:-financial_warehouse}
       METABASE_REPORTING_DB_HOST: postgres
       METABASE_REPORTING_DB_PORT: 5432
       METABASE_REPORTING_DB_USER: ${METABASE_REPORTING_DB_USER:-metabase_reporting}
-      METABASE_REPORTING_DB_PASSWORD: ${METABASE_REPORTING_DB_PASSWORD:-metabase_reporting}
+      METABASE_REPORTING_DB_PASSWORD: ${METABASE_REPORTING_DB_PASSWORD:?METABASE_REPORTING_DB_PASSWORD is required}
     volumes:
       - ./metabase:/opt/metabase:ro
     command: python /opt/metabase/provision_metabase.py
     depends_on:
       metabase:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
+      postgres-bootstrap:
+        condition: service_completed_successfully
     restart: "no"
     networks:
       - financial_warehouse

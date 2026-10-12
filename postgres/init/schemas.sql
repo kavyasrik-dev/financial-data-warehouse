@@ -5,9 +5,9 @@ CREATE SCHEMA IF NOT EXISTS staging;
 CREATE SCHEMA IF NOT EXISTS warehouse;
 CREATE SCHEMA IF NOT EXISTS analytics;
 
-GRANT USAGE ON SCHEMA raw, staging, warehouse, analytics TO warehouse_app;
-GRANT CREATE ON SCHEMA staging, warehouse, analytics TO warehouse_app;
-GRANT USAGE ON SCHEMA analytics TO metabase_reporting;
+GRANT USAGE ON SCHEMA raw, staging, warehouse, analytics TO :"warehouse_user";
+GRANT CREATE ON SCHEMA staging, warehouse, analytics TO :"warehouse_user";
+GRANT USAGE ON SCHEMA analytics TO :"reporting_user";
 
 CREATE TABLE IF NOT EXISTS raw.ingestion_batches (
     load_batch_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -166,21 +166,21 @@ CREATE INDEX IF NOT EXISTS idx_fact_transactions_date_key ON warehouse.fact_tran
 CREATE INDEX IF NOT EXISTS idx_fact_transactions_customer_sk ON warehouse.fact_transactions (customer_sk);
 CREATE INDEX IF NOT EXISTS idx_fact_transactions_card_sk ON warehouse.fact_transactions (card_sk);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA raw, staging, warehouse, analytics TO warehouse_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA raw, staging, warehouse, analytics TO warehouse_app;
-GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO metabase_reporting;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA raw, staging, warehouse, analytics TO :"warehouse_user";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA raw, staging, warehouse, analytics TO :"warehouse_user";
+GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO :"reporting_user";
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA staging, warehouse, analytics
-    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO warehouse_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"warehouse_user";
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA staging, warehouse, analytics
-    GRANT USAGE, SELECT ON SEQUENCES TO warehouse_app;
+    GRANT USAGE, SELECT ON SEQUENCES TO :"warehouse_user";
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA analytics
-    GRANT SELECT ON TABLES TO metabase_reporting;
+    GRANT SELECT ON TABLES TO :"reporting_user";
 
-ALTER ROLE metabase_reporting IN DATABASE financial_warehouse
+ALTER ROLE :"reporting_user" IN DATABASE :"warehouse_database"
     SET search_path = analytics, public;
 
-ALTER ROLE warehouse_app IN DATABASE financial_warehouse
+ALTER ROLE :"warehouse_user" IN DATABASE :"warehouse_database"
     SET search_path = analytics, warehouse, staging, raw, public;
