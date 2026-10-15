@@ -42,7 +42,7 @@ def main() -> None:
     for expected in [
         "GRANT USAGE ON SCHEMA analytics TO",
         "GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO",
-        "ALTER DEFAULT PRIVILEGES IN SCHEMA analytics",
+        'ALTER DEFAULT PRIVILEGES FOR ROLE :"warehouse_user" IN SCHEMA analytics',
         "SET search_path = analytics, public",
     ]:
         if expected not in schemas_sql:

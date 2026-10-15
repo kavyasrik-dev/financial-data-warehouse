@@ -176,7 +176,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA staging, warehouse, analytics
 ALTER DEFAULT PRIVILEGES IN SCHEMA staging, warehouse, analytics
     GRANT USAGE, SELECT ON SEQUENCES TO :"warehouse_user";
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA analytics
+ALTER DEFAULT PRIVILEGES FOR ROLE :"warehouse_user" IN SCHEMA analytics
     GRANT SELECT ON TABLES TO :"reporting_user";
 
 ALTER ROLE :"reporting_user" IN DATABASE :"warehouse_database"
