@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Financial Warehouse</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#overview" aria-label="Financial Warehouse overview">
+          <span class="brand-mark" aria-hidden="true">FW</span>
+          <span>
+            <strong>Financial</strong>
+            <small>Warehouse</small>
+          </span>
+        </a>
+
+        <nav class="primary-nav" aria-label="Primary navigation">
+          <a class="nav-link active" href="#overview">Overview</a>
+          <a class="nav-link" href="#activity">Activity</a>
+          <a class="nav-link" href="#customers">Customers</a>
+        </nav>
+
+        <div class="console-links">
+          <p>Consoles</p>
+          <a id="airflowLink" href="#" target="_blank" rel="noreferrer">Airflow</a>
+          <a id="metabaseLink" href="#" target="_blank" rel="noreferrer">Metabase</a>
+        </div>
+
+        <div class="environment-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>
+            <strong>Analytics online</strong>
+            <small id="dataThrough">Checking freshness</small>
+          </span>
+        </div>
+      </aside>
+
+      <main class="main-content" id="overview">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">Operations</p>
+            <h1>Financial warehouse</h1>
+            <p class="page-summary">Transaction health and customer activity across the reporting layer.</p>
+          </div>
+          <div class="header-actions">
+            <div class="range-control" aria-label="Reporting range">
+              <button type="button" data-days="7">7 days</button>
+              <button type="button" data-days="30" class="selected">30 days</button>
+              <button type="button" data-days="90">90 days</button>
+            </div>
+            <button class="refresh-button" id="refreshButton" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <div class="error-banner" id="errorBanner" role="alert" hidden>
+          Analytics are temporarily unavailable. Try refreshing in a moment.
+        </div>
+
+        <section class="kpi-grid" aria-label="Key metrics">
+          <article class="kpi-card accent-green">
+            <p>Transactions</p>
+            <strong id="totalTransactions">--</strong>
+            <span id="transactionRange">Last 30 days</span>
+          </article>
+          <article class="kpi-card accent-blue">
+            <p>Success rate</p>
+            <strong id="successRate">--</strong>
+            <span id="failedTransactions">-- failed transactions</span>
+          </article>
+          <article class="kpi-card accent-amber">
+            <p>Active customers</p>
+            <strong id="activeCustomers">--</strong>
+            <span id="customerCoverage">-- total customers</span>
+          </article>
+          <article class="kpi-card accent-charcoal">
+            <p>Average daily volume</p>
+            <strong id="averageDaily">--</strong>
+            <span>Transactions per active day</span>
+          </article>
+        </section>
+
+        <section class="activity-grid" id="activity">
+          <article class="panel trend-panel">
+            <header class="panel-header">
+              <div>
+                <p class="panel-kicker">Throughput</p>
+                <h2>Transaction activity</h2>
+              </div>
+              <span class="panel-meta" id="trendRange">Last 30 days</span>
+            </header>
+            <div class="chart-frame">
+              <svg id="trendChart" viewBox="0 0 800 280" role="img" aria-label="Daily transaction count"></svg>
+              <p class="empty-state" id="trendEmpty" hidden>No transaction activity in this range.</p>
+            </div>
+          </article>
+
+          <article class="panel status-panel">
+            <header class="panel-header">
+              <div>
+                <p class="panel-kicker">Outcomes</p>
+                <h2>Status mix</h2>
+              </div>
+              <span class="panel-meta">All time</span>
+            </header>
+            <div class="donut-layout">
+              <svg id="statusChart" viewBox="0 0 180 180" role="img" aria-label="Transaction status distribution"></svg>
+              <div class="status-legend" id="statusLegend"></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="detail-grid">
+          <article class="panel category-panel">
+            <header class="panel-header">
+              <div>
+                <p class="panel-kicker">Merchant activity</p>
+                <h2>Top categories</h2>
+              </div>
+              <span class="panel-meta">All time</span>
+            </header>
+            <div class="bar-list" id="categoryBars"></div>
+          </article>
+
+          <article class="panel customer-panel" id="customers">
+            <header class="panel-header">
+              <div>
+                <p class="panel-kicker">Protected reporting</p>
+                <h2>Most active customers</h2>
+              </div>
+              <span class="privacy-label">Masked PII</span>
+            </header>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Customer</th>
+                    <th scope="col">Region</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="numeric">Transactions</th>
+                    <th scope="col" class="numeric">Success</th>
+                    <th scope="col">Last activity</th>
+                  </tr>
+                </thead>
+                <tbody id="customerRows"></tbody>
+              </table>
+              <p class="empty-state" id="customerEmpty" hidden>No customer activity is available.</p>
+            </div>
+          </article>
+        </section>
+
+        <footer class="page-footer">
+          <span>Analytics reporting layer</span>
+          <span id="lastUpdated">Waiting for data</span>
+        </footer>
+      </main>
+    </div>
+    <noscript>This dashboard requires JavaScript.</noscript>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

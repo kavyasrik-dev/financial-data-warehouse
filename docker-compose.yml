@@ -213,6 +213,46 @@ services:
     networks:
       - financial_warehouse
 
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    environment:
+      WAREHOUSE_DB_HOST: postgres
+      WAREHOUSE_DB_PORT: 5432
+      WAREHOUSE_DB_NAME: ${METABASE_REPORTING_DB_NAME:-financial_warehouse}
+      WAREHOUSE_DB_USER: ${METABASE_REPORTING_DB_USER:-metabase_reporting}
+      WAREHOUSE_DB_PASSWORD: ${METABASE_REPORTING_DB_PASSWORD:?METABASE_REPORTING_DB_PASSWORD is required}
+      FRONTEND_USERNAME: ${FRONTEND_USERNAME:-analyst}
+      FRONTEND_PASSWORD: ${FRONTEND_PASSWORD:?FRONTEND_PASSWORD is required}
+      AIRFLOW_PUBLIC_URL: ${AIRFLOW_PUBLIC_URL:-http://localhost:8080}
+      METABASE_PUBLIC_URL: ${METABASE_PUBLIC_URL:-http://localhost:3000}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8088}:8000"
+    depends_on:
+      postgres-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - financial_warehouse
+
 volumes:
   postgres_data:
   metabase_data:
