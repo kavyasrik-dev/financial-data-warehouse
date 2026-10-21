@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <title>Financial Warehouse</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/assets/styles.css">
   </head>
   <body>
@@ -30,10 +31,10 @@
           <a id="metabaseLink" href="#" target="_blank" rel="noreferrer">Metabase</a>
         </div>
 
-        <div class="environment-status">
+        <div class="environment-status" id="environmentStatus">
           <span class="status-dot" aria-hidden="true"></span>
           <span>
-            <strong>Analytics online</strong>
+            <strong id="environmentStatusText">Analytics online</strong>
             <small id="dataThrough">Checking freshness</small>
           </span>
         </div>
@@ -47,16 +48,25 @@
             <p class="page-summary">Transaction health and customer activity across the reporting layer.</p>
           </div>
           <div class="header-actions">
-            <div class="range-control" aria-label="Reporting range">
-              <button type="button" data-days="7">7 days</button>
-              <button type="button" data-days="30" class="selected">30 days</button>
-              <button type="button" data-days="90">90 days</button>
+            <div class="range-control" role="group" aria-label="Reporting range">
+              <button type="button" data-days="7" aria-pressed="false">7 days</button>
+              <button type="button" data-days="30" class="selected" aria-pressed="true">30 days</button>
+              <button type="button" data-days="90" aria-pressed="false">90 days</button>
             </div>
             <button class="refresh-button" id="refreshButton" type="button">Refresh</button>
           </div>
         </header>
 
-        <div class="error-banner" id="errorBanner" role="alert" hidden>
+        <div class="mobile-console-links" aria-label="Service consoles">
+          <a id="airflowMobileLink" href="#" target="_blank" rel="noreferrer">Airflow</a>
+          <a id="metabaseMobileLink" href="#" target="_blank" rel="noreferrer">Metabase</a>
+          <span class="mobile-status" id="mobileStatus">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="mobileStatusText">Online</span>
+          </span>
+        </div>
+
+        <div class="error-banner" id="errorBanner" role="alert" aria-live="assertive" hidden>
           Analytics are temporarily unavailable. Try refreshing in a moment.
         </div>
 
@@ -154,7 +164,7 @@
 
         <footer class="page-footer">
           <span>Analytics reporting layer</span>
-          <span id="lastUpdated">Waiting for data</span>
+          <span id="lastUpdated" aria-live="polite">Waiting for data</span>
         </footer>
       </main>
     </div>

@@ -14,7 +14,13 @@ def authorization() -> str:
     return f"Basic {token}"
 
 
-def request(path: str, query: str = "", authenticated: bool = True) -> tuple[str, dict[str, str], bytes]:
+def request(
+    path: str,
+    query: str = "",
+    authenticated: bool = True,
+    method: str = "GET",
+    authorization_header: str | None = None,
+) -> tuple[str, dict[str, str], bytes]:
     captured: dict[str, object] = {}
 
     def start_response(status: str, headers: list[tuple[str, str]]) -> None:
@@ -22,11 +28,13 @@ def request(path: str, query: str = "", authenticated: bool = True) -> tuple[str
         captured["headers"] = dict(headers)
 
     environ = {
-        "REQUEST_METHOD": "GET",
+        "REQUEST_METHOD": method,
         "PATH_INFO": path,
         "QUERY_STRING": query,
     }
-    if authenticated:
+    if authorization_header is not None:
+        environ["HTTP_AUTHORIZATION"] = authorization_header
+    elif authenticated:
         environ["HTTP_AUTHORIZATION"] = authorization()
     body = b"".join(app.application(environ, start_response))
     return str(captured["status"]), dict(captured["headers"]), body
@@ -91,6 +99,59 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual("401 Unauthorized", status)
         self.assertIn("Basic realm=", headers["WWW-Authenticate"])
         self.assertNotIn(b"correct-horse", body)
+
+    def test_malformed_authentication_is_rejected(self) -> None:
+        status, _, body = request("/", authorization_header="Basic not-base64")
+        self.assertEqual("401 Unauthorized", status)
+        self.assertEqual(b"Authentication required", body)
+
+    def test_static_endpoints_and_head(self) -> None:
+        expected_types = {
+            "/": "text/html; charset=utf-8",
+            "/assets/styles.css": "text/css; charset=utf-8",
+            "/assets/app.js": "text/javascript; charset=utf-8",
+            "/assets/favicon.svg": "image/svg+xml",
+        }
+        for path, content_type in expected_types.items():
+            with self.subTest(path=path):
+                status, headers, body = request(path)
+                self.assertEqual("200 OK", status)
+                self.assertEqual(content_type, headers["Content-Type"])
+                self.assertTrue(body)
+
+        status, headers, body = request("/assets/app.js", method="HEAD")
+        self.assertEqual("200 OK", status)
+        self.assertEqual(b"", body)
+        self.assertGreater(int(headers["Content-Length"]), 0)
+
+    @patch.object(app, "database_ready", return_value=True)
+    def test_health_endpoint_reports_ready(self, _database_ready: object) -> None:
+        status, headers, body = request("/health", authenticated=False)
+        self.assertEqual("200 OK", status)
+        self.assertEqual({"status": "ok"}, json.loads(body))
+        self.assertEqual("noindex, nofollow", headers["X-Robots-Tag"])
+
+    @patch.object(app, "database_ready", return_value=False)
+    def test_health_endpoint_reports_unavailable(self, _database_ready: object) -> None:
+        status, _, body = request("/health", authenticated=False)
+        self.assertEqual("503 Service Unavailable", status)
+        self.assertEqual({"status": "unavailable"}, json.loads(body))
+
+    def test_health_endpoint_requires_configured_credentials(self) -> None:
+        with patch.dict(os.environ, {"FRONTEND_PASSWORD": ""}):
+            status, _, body = request("/health", authenticated=False)
+        self.assertEqual("503 Service Unavailable", status)
+        self.assertEqual({"status": "unavailable"}, json.loads(body))
+
+    def test_unknown_endpoint_and_unsupported_method(self) -> None:
+        status, _, body = request("/does-not-exist")
+        self.assertEqual("404 Not Found", status)
+        self.assertEqual({"error": "not found"}, json.loads(body))
+
+        status, headers, body = request("/api/overview", method="POST")
+        self.assertEqual("405 Method Not Allowed", status)
+        self.assertEqual("GET, HEAD", headers["Allow"])
+        self.assertEqual({"error": "method not allowed"}, json.loads(body))
 
     def test_overview_is_returned_with_security_headers(self) -> None:
         payload = {"range_days": 30, "metrics": {"total_transactions": 42}}

@@ -28,6 +28,7 @@ SECURITY_HEADERS = [
     ("Referrer-Policy", "no-referrer"),
     ("X-Content-Type-Options", "nosniff"),
     ("X-Frame-Options", "DENY"),
+    ("X-Robots-Tag", "noindex, nofollow"),
 ]
 
 METRICS_SQL = """
@@ -223,9 +224,17 @@ def json_response(
     status: str,
     payload: dict[str, Any],
     head_only: bool = False,
+    extra_headers: Iterable[tuple[str, str]] = (),
 ) -> list[bytes]:
     body = json.dumps(payload, default=json_default, separators=(",", ":")).encode("utf-8")
-    return response(start_response, status, body, "application/json; charset=utf-8", head_only=head_only)
+    return response(
+        start_response,
+        status,
+        body,
+        "application/json; charset=utf-8",
+        extra_headers,
+        head_only,
+    )
 
 
 def application(environ: dict[str, Any], start_response: Callable[[str, list[tuple[str, str]]], Any]) -> list[bytes]:
@@ -234,7 +243,13 @@ def application(environ: dict[str, Any], start_response: Callable[[str, list[tup
     head_only = method == "HEAD"
 
     if method not in {"GET", "HEAD"}:
-        return json_response(start_response, "405 Method Not Allowed", {"error": "method not allowed"}, head_only)
+        return json_response(
+            start_response,
+            "405 Method Not Allowed",
+            {"error": "method not allowed"},
+            head_only,
+            [("Allow", "GET, HEAD")],
+        )
 
     if path == "/health":
         if not os.environ.get("FRONTEND_USERNAME") or not os.environ.get("FRONTEND_PASSWORD"):
@@ -261,6 +276,7 @@ def application(environ: dict[str, Any], start_response: Callable[[str, list[tup
         "/": (STATIC_ROOT / "index.html", "text/html; charset=utf-8"),
         "/assets/styles.css": (STATIC_ROOT / "styles.css", "text/css; charset=utf-8"),
         "/assets/app.js": (STATIC_ROOT / "app.js", "text/javascript; charset=utf-8"),
+        "/assets/favicon.svg": (STATIC_ROOT / "favicon.svg", "image/svg+xml"),
     }
     if path in static_files:
         file_path, content_type = static_files[path]

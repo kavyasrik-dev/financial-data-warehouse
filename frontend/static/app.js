@@ -23,6 +23,11 @@ const transactionRange = byId("transactionRange");
 const trendRange = byId("trendRange");
 const errorBanner = byId("errorBanner");
 const refreshButton = byId("refreshButton");
+const mainContent = byId("overview");
+const environmentStatus = byId("environmentStatus");
+const environmentStatusText = byId("environmentStatusText");
+const mobileStatus = byId("mobileStatus");
+const mobileStatusText = byId("mobileStatusText");
 
 function svgElement(name, attributes = {}) {
   const element = document.createElementNS(SVG_NS, name);
@@ -54,6 +59,19 @@ function setExternalLink(element, value) {
     console.warn("Invalid console URL", error);
   }
   element.removeAttribute("href");
+}
+
+function setServiceState(online) {
+  environmentStatus.classList.toggle("offline", !online);
+  mobileStatus.classList.toggle("offline", !online);
+  environmentStatusText.textContent = online ? "Analytics online" : "Analytics unavailable";
+  mobileStatusText.textContent = online ? "Online" : "Unavailable";
+}
+
+function setLoading(loading) {
+  mainContent.setAttribute("aria-busy", String(loading));
+  refreshButton.disabled = loading;
+  refreshButton.textContent = loading ? "Loading" : "Refresh";
 }
 
 function renderMetrics(data) {
@@ -256,31 +274,38 @@ function render(data) {
   renderCustomers(data.customers || []);
   setExternalLink(byId("airflowLink"), data.links?.airflow);
   setExternalLink(byId("metabaseLink"), data.links?.metabase);
+  setExternalLink(byId("airflowMobileLink"), data.links?.airflow);
+  setExternalLink(byId("metabaseMobileLink"), data.links?.metabase);
   byId("lastUpdated").textContent = `Updated ${new Date(data.generated_at).toLocaleString()}`;
+  setServiceState(true);
 }
 
 async function loadDashboard() {
   requestController?.abort();
-  requestController = new AbortController();
-  const timeout = window.setTimeout(() => requestController.abort(), 12000);
-  refreshButton.disabled = true;
-  refreshButton.textContent = "Loading";
+  const controller = new AbortController();
+  requestController = controller;
+  const timeout = window.setTimeout(() => controller.abort(), 12000);
+  setLoading(true);
   errorBanner.hidden = true;
   try {
     const response = await fetch(`/api/overview?days=${selectedDays}`, {
       credentials: "same-origin",
       headers: { Accept: "application/json" },
-      signal: requestController.signal,
+      signal: controller.signal,
     });
     if (!response.ok) throw new Error(`Request failed with ${response.status}`);
     render(await response.json());
   } catch (error) {
+    if (requestController !== controller) return;
     if (error.name !== "AbortError") console.error(error);
     errorBanner.hidden = false;
+    setServiceState(false);
   } finally {
     window.clearTimeout(timeout);
-    refreshButton.disabled = false;
-    refreshButton.textContent = "Refresh";
+    if (requestController === controller) {
+      requestController = null;
+      setLoading(false);
+    }
   }
 }
 
@@ -288,7 +313,9 @@ document.querySelectorAll("[data-days]").forEach((button) => {
   button.addEventListener("click", () => {
     selectedDays = Number(button.dataset.days);
     document.querySelectorAll("[data-days]").forEach((candidate) => {
-      candidate.classList.toggle("selected", candidate === button);
+      const selected = candidate === button;
+      candidate.classList.toggle("selected", selected);
+      candidate.setAttribute("aria-pressed", String(selected));
     });
     loadDashboard();
   });
