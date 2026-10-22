@@ -160,7 +160,7 @@ def check_untrusted_access() -> None:
             "--dbname",
             warehouse_database,
             "--command",
-            'SET ROLE :"reporting_user"; SELECT customer_id FROM raw.customers LIMIT 1;',
+            f'SET ROLE "{reporting_user}"; SELECT customer_id FROM raw.customers LIMIT 1;',
         ],
         required=False,
     )

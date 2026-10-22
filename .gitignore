@@ -18,9 +18,12 @@ airflow/plugins/
 dbt_project/target/
 dbt_project/dbt_packages/
 dbt_project/logs/
+dbt_project/.user.yml
 
 # Great Expectations
 great_expectations/uncommitted/
+.ge_store_backend_id
+**/.ge_store_backend_id
 
 # Docker / local data
 *.log

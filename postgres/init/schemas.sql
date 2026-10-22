@@ -166,6 +166,11 @@ CREATE INDEX IF NOT EXISTS idx_fact_transactions_date_key ON warehouse.fact_tran
 CREATE INDEX IF NOT EXISTS idx_fact_transactions_customer_sk ON warehouse.fact_transactions (customer_sk);
 CREATE INDEX IF NOT EXISTS idx_fact_transactions_card_sk ON warehouse.fact_transactions (card_sk);
 
+ALTER TABLE warehouse.dim_customer OWNER TO :"warehouse_user";
+ALTER TABLE warehouse.dim_card OWNER TO :"warehouse_user";
+ALTER TABLE warehouse.dim_date OWNER TO :"warehouse_user";
+ALTER TABLE warehouse.fact_transactions OWNER TO :"warehouse_user";
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA raw, staging, warehouse, analytics TO :"warehouse_user";
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA raw, staging, warehouse, analytics TO :"warehouse_user";
 GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO :"reporting_user";
